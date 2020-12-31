@@ -1,0 +1,31 @@
+{
+  "name": "sylae/iteronbot",
+  "type": "project",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Keira Dueck",
+      "email": "sylae@calref.net"
+    }
+  ],
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "require": {
+    "sylae/huntress": "dev-master"
+  },
+  "autoload": {
+    "psr-4": {
+      "": "src/"
+    }
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true
+  },
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/sylae/huntress"
+    }
+  ]
+}
