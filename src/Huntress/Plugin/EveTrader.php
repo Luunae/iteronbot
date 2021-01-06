@@ -32,21 +32,22 @@ class EveTrader implements PluginInterface
 {
     use PluginHelperTrait;
 
+    /*
     const GUILD = 349058708304822273; // masturbatorium - test
     const ROLES = [
         365084727750688768, // cum elemental
         606468384472825884, // interns
     ];
     const MODROLE = 365084727750688768;
+    */
 
-    /*
     const GUILD = 616779348250329128; // be nice - prod
     const ROLES = [
         616781834939793428, // director
         616781942167175198, // comrade
     ];
     const MODROLE = 616781834939793428;
-    */
+    
 
     const EVEPRAISAL = "/https?:\/\/.*?evepraisal.com\/a\/(.+)$/i";
     const JANICE = "/https?:\/\/.*?janice\.e-351\.com\/a\/(.+)$/i";
