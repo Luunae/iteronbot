@@ -23,3 +23,6 @@ $config['logLevel'] = \Monolog\Logger::INFO;
 $config['evalUsers'] = [
 //    '297969955356540929', // keira
 ];
+
+// janice api key
+$config['janice'] = "xxx";
