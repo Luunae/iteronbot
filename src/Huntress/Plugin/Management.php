@@ -36,7 +36,7 @@ class Management implements PluginInterface
         $bot->on(self::PLUGINEVENT_COMMAND_PREFIX . "restart", [self::class, "restart"]);
         $bot->on(self::PLUGINEVENT_COMMAND_PREFIX . "ping", [self::class, "ping"]);
         $bot->on(self::PLUGINEVENT_COMMAND_PREFIX . "huntress", [self::class, "info"]);
-        $bot->on(self::PLUGINEVENT_COMMAND_PREFIX . "invite", [self::class, "invite"]);
+        // $bot->on(self::PLUGINEVENT_COMMAND_PREFIX . "invite", [self::class, "invite"]);
         $bot->on(self::PLUGINEVENT_READY, function () {
             self::$startupTime = Carbon::now();
         });
