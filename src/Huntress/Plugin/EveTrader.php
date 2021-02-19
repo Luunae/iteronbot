@@ -47,7 +47,7 @@ class EveTrader implements PluginInterface
         616781942167175198, // comrade
     ];
     const MODROLE = 616781834939793428;
-    
+
 
     const EVEPRAISAL = "/https?:\/\/.*?evepraisal.com\/a\/(.+)$/i";
     const JANICE = "/https?:\/\/.*?janice\.e-351\.com\/a\/(.+)$/i";
@@ -263,6 +263,10 @@ class EveTrader implements PluginInterface
                 }
                 return $str;
             })->implode(null, PHP_EOL);
+
+            if ($orders->count() == 0) {
+                $lines = "There are no requests right now. 😔";
+            }
 
             $roles = MessageHelpers::splitMessage($lines, ['maxLength' => 1024]);
             $firstField = true;
