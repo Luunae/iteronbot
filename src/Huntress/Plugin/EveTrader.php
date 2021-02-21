@@ -590,9 +590,10 @@ class EveTrader implements PluginInterface
         $embed->setFooter(sprintf("Request ID %s", Snowflake::format($hr->id)));
 
         if ($includeItems) {
-            $itemStr = $hr->items->map(function (Item $v) {
+            $itemStr = $hr->items->map(function (Item $v, $k) {
                 return sprintf("%s x%s (💸 %s ISK, 📦 %s m³)",
-                    $v->name, number_format($v->amount),
+                    sprintf("[%s](https://everef.net/type/%s)", $v->name, $k),
+                    number_format($v->amount),
                     number_format($v->price * $v->amount),
                     number_format($v->volume * $v->amount)
                 );
