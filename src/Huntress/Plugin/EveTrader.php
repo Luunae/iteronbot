@@ -90,6 +90,12 @@ class EveTrader implements PluginInterface
         );
 
         $bot->eventManager->addEventListener(EventListener::new()
+            ->addCommand("haulstats")
+            ->addGuild(self::GUILD)
+            ->setCallback([self::class, "statsHandler"])
+        );
+
+        $bot->eventManager->addEventListener(EventListener::new()
             ->addEvent("dbSchema")
             ->setCallback([self::class, "db"])
         );
@@ -128,6 +134,102 @@ class EveTrader implements PluginInterface
             });
         } catch (Throwable $e) {
             $bot->log->warning($e->getMessage(), ['exception' => $e]);
+        }
+    }
+
+    public static function statsHandler(EventData $data): ?PromiseInterface
+    {
+        try {
+            $can = false;
+            foreach (self::ROLES as $r) {
+                $can = $can || $data->message->member->roles->has($r);
+            }
+            if (!$can) {
+                return $data->message->react("😔");
+            }
+
+            $orders = self::getAllTrades($data->guild);
+
+
+            /** @var Collection $members */
+            $members = $orders->reduce(function (Collection $carry, HaulRequest $v) use ($data) {
+                if (is_null($v->seller)) {
+                    return $carry;
+                }
+                if (!$carry->has($v->seller)) {
+                    $carry->set($v->seller, (object) [
+                        'name' => $data->guild->members->get($v->seller)->displayName ?? "Unknown user ".$v->seller,
+                        'num' => 0,
+                        'isk' => 0,
+                        'm3' => 0,
+                    ]);
+                }
+
+                $carry->get($v->seller)->num++;
+                $carry->get($v->seller)->isk += $v->getTotalPrice();
+                $carry->get($v->seller)->m3 += $v->getTotalVolume();
+
+                return $carry;
+            }, new Collection())->sortCustom(function ($a, $b) {
+                $isk = $a->isk <=> $b->isk;
+                $vol = $a->m3 <=> $b->m3;
+                $num = $a->num <=> $b->num;
+
+                if ($vol == 0) {
+                    if ($num == 0) {
+                        return $isk * -1;
+                    } else {
+                        return $num * -1;
+                    }
+                } else {
+                    return $vol * -1;
+                }
+            })->map(function ($v) {
+                return [
+                    'name' => $v->name,
+                    'num' => number_format($v->num),
+                    'isk' => number_format($v->isk),
+                    'm3' => number_format($v->m3),
+                ];
+            });
+
+            $heads = [
+                'name' => "Hauler",
+                'num' => "Reqs",
+                'isk' => "Total ISK",
+                'm3' => "Total m3",
+            ];
+
+            $width = [
+                'name' => mb_strwidth($heads['name']),
+                'num' => mb_strwidth($heads['num']),
+                'isk' => mb_strwidth($heads['isk']),
+                'm3' => mb_strwidth($heads['m3']),
+            ];
+
+            $width = $members->reduce(function (array $width, $v) {
+                foreach ($width as $key => $value) {
+                    $width[$key] = max($value, mb_strwidth($v[$key]));
+                }
+                return $width;
+            }, $width);
+
+            $closure = fn ($v, $k) => str_pad($v, $width[$k], " ", ($k == "name"));
+
+            $x = [];
+            $x[] = "```";
+            $x[] = implode("  ", array_map($closure, $heads, array_keys($heads)));
+            $x = $members->reduce(function ($x, $v) use ($closure) {
+                $x[] = implode("  ", array_map($closure, $v, array_keys($v)));
+                return $x;
+            }, $x);
+            $x[] = "```";
+
+            return $data->message->channel->send(implode(PHP_EOL, $x),
+                ['split' => ['before' => '```json' . PHP_EOL, 'after' => '```']]);
+
+        } catch (Throwable $e) {
+            return self::exceptionHandler($data->message, $e, true);
         }
     }
 
