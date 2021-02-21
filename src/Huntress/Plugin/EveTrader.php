@@ -146,7 +146,9 @@ class EveTrader implements PluginInterface
                     $hr->fillItems();
 
                     if ($hr->insert()) {
-                        $embed = self::getEmbed($hr, $data, true);
+                        $msg = sprintf("Haulers: Claim this request by running `!claim %s`",Snowflake::format($hr->id));
+                        $embed = self::getEmbed($hr, $data, true, $msg);
+
                         return $data->message->channel->send("<@&723984678117441646>, a member has posted a haul request.",
                             ['embed' => $embed]);
                     } else {
@@ -286,7 +288,9 @@ class EveTrader implements PluginInterface
             }
 
             $req->claim($data->message->member->id);
-            $embed = self::getEmbed($req, $data, true);
+            $msg = sprintf("Hauler: Once you've contracted this request, run `!complete %s`",Snowflake::format($req->id));
+
+            $embed = self::getEmbed($req, $data, true, $msg);
 
             return $data->message->channel->send(sprintf("<@%s> claimed <@%s>'s request",
                 $req->seller, $req->buyer), ['embed' => $embed]);
@@ -343,7 +347,7 @@ class EveTrader implements PluginInterface
         }
     }
 
-    private static function getEmbed(HaulRequest $hr, EventData $data, bool $includeItems = true): MessageEmbed {
+    private static function getEmbed(HaulRequest $hr, EventData $data, bool $includeItems = true, string $description = null): MessageEmbed {
         $price = $hr->getTotalPrice();
         $fee = $price * 0.05;
         $priceMsg = sprintf("%s ISK\n%s ISK fee\n%s ISK total",
@@ -359,8 +363,10 @@ class EveTrader implements PluginInterface
         $embed->setTimestamp(time());
 
         $embed->setTitle("Request posted");
-        $embed->setDescription(sprintf("Sellers: Claim this request by running `!claim %s`",
-            Snowflake::format($hr->id)));
+
+        if ($description) {
+            $embed->setDescription($description);
+        }
         $embed->setURL($hr->getLink());
 
         $embed->addField("Items", $hr->getLink());
