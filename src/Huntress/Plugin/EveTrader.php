@@ -148,8 +148,7 @@ class EveTrader implements PluginInterface
                 return $data->message->react("😔");
             }
 
-            $orders = self::getAllTrades($data->guild);
-
+            $orders = self::getAllTrades($data->guild)->filter(fn (HaulRequest $v) => !is_null($v->completeTime));
 
             /** @var Collection $members */
             $members = $orders->reduce(function (Collection $carry, HaulRequest $v) use ($data) {
