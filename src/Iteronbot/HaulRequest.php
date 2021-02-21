@@ -150,6 +150,27 @@ abstract class HaulRequest
         }
     }
 
+    public function unclaim(): self
+    {
+        $now = Carbon::now();
+        $qb = DatabaseFactory::get()->createQueryBuilder();
+        $qb->update('evetrader')
+            ->set("idSeller", "?")
+            ->set("claimTime", "?")
+            ->where('idTrade = ?')
+            ->setParameter(0, null, "integer")
+            ->setParameter(1, null, "datetime")
+            ->setParameter(2, $this->id, "integer");
+
+        if ($qb->execute()) {
+            $this->seller = null;
+            $this->claimTime = null;
+            return $this;
+        } else {
+            throw new \Exception("Failed to update database?");
+        }
+    }
+
     public function complete(): self
     {
         $now = Carbon::now();

@@ -146,8 +146,9 @@ class EveTrader implements PluginInterface
                     $hr->fillItems();
 
                     if ($hr->insert()) {
-                        $msg = sprintf("Haulers: Claim this request by running `!claim %s`",Snowflake::format($hr->id));
-                        $embed = self::getEmbed($hr, $data, true, $msg);
+                        $embed = self::getEmbed($hr, $data, true);
+                        $embed->setTitle("Request posted");
+                        $embed->setDescription(sprintf("Haulers: Claim this request by running `!claim %s`",Snowflake::format($hr->id)));
 
                         return $data->message->channel->send("<@&723984678117441646>, a member has posted a haul request.",
                             ['embed' => $embed]);
@@ -288,9 +289,9 @@ class EveTrader implements PluginInterface
             }
 
             $req->claim($data->message->member->id);
-            $msg = sprintf("Hauler: Once you've contracted this request, run `!complete %s`",Snowflake::format($req->id));
-
-            $embed = self::getEmbed($req, $data, true, $msg);
+            $embed = self::getEmbed($req, $data, true);
+            $embed->setTitle("Request claimed");
+            $embed->setDescription(sprintf("Hauler: Once you've contracted this request, run `!complete %s`",Snowflake::format($req->id)));
 
             return $data->message->channel->send(sprintf("<@%s> claimed <@%s>'s request",
                 $req->seller, $req->buyer), ['embed' => $embed]);
@@ -340,6 +341,7 @@ class EveTrader implements PluginInterface
             $req->complete();
 
             $embed = self::getEmbed($req, $data, false);
+            $embed->setTitle("Request completed");
 
             return $data->message->channel->send(sprintf("<@%s>'s request has been completed.", $req->buyer), ['embed' => $embed]);
         } catch (Throwable $e) {
@@ -347,7 +349,7 @@ class EveTrader implements PluginInterface
         }
     }
 
-    private static function getEmbed(HaulRequest $hr, EventData $data, bool $includeItems = true, string $description = null): MessageEmbed {
+    private static function getEmbed(HaulRequest $hr, EventData $data, bool $includeItems = true): MessageEmbed {
         $price = $hr->getTotalPrice();
         $fee = $price * 0.05;
         $priceMsg = sprintf("%s ISK\n%s ISK fee\n%s ISK total",
@@ -361,12 +363,6 @@ class EveTrader implements PluginInterface
             $data->message->member->user->getAvatarURL(64) ?? null);
         $embed->setColor($data->message->member->id % 0xFFFFFF);
         $embed->setTimestamp(time());
-
-        $embed->setTitle("Request posted");
-
-        if ($description) {
-            $embed->setDescription($description);
-        }
         $embed->setURL($hr->getLink());
 
         $embed->addField("Items", $hr->getLink());
