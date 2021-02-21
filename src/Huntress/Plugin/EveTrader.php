@@ -75,6 +75,13 @@ class EveTrader implements PluginInterface
         );
 
         $bot->eventManager->addEventListener(EventListener::new()
+            ->addCommand("unclaim")
+            ->addCommand("release")
+            ->addGuild(self::GUILD)
+            ->setCallback([self::class, "unclaimHandler"])
+        );
+
+        $bot->eventManager->addEventListener(EventListener::new()
             ->addCommand("complete")
             ->addGuild(self::GUILD)
             ->setCallback([self::class, "completeHandler"])
@@ -295,6 +302,62 @@ class EveTrader implements PluginInterface
 
             return $data->message->channel->send(sprintf("<@%s> claimed <@%s>'s request",
                 $req->seller, $req->buyer), ['embed' => $embed]);
+        } catch (Throwable $e) {
+            return self::exceptionHandler($data->message, $e, true);
+        }
+    }
+
+    public static function unclaimHandler(EventData $data): ?PromiseInterface
+    {
+        try {
+            $can = false;
+            foreach (self::ROLES as $r) {
+                $can = $can || $data->message->member->roles->has($r);
+            }
+            if (!$can) {
+                return $data->message->react("😔");
+            }
+
+            if (count(self::_split($data->message->content)) != 2) {
+                return self::error($data->message, "Unable to parse",
+                    "Usage: `!unclaim ID`");
+            }
+            $id = self::arg_substr($data->message->content, 1, 1);
+
+            $res = $data->huntress->db->executeQuery("select idTrade, site from evetrader where idTrade = ?",
+                [Snowflake::parse($id)],
+                ['integer']);
+
+            if ($row = $res->fetchAssociative()) {
+                if (!(new ReflectionClass($row['site']))->isSubclassOf("Iteronbot\HaulRequest")) {
+                    throw new \Exception(sprintf("non-HaulRequest class in database! Tell sauce bosses to look into `%s`",
+                        json_encode($row)));
+                }
+                /** @var HaulRequest $req */
+                $req = new $row['site']($row['idTrade']);
+            } else {
+                return self::error($data->message, "Unknown request ID",
+                    "I don't have that ID in my database. If you're certain it's typed correctly, ask a sauce boss for help.");
+            }
+
+            if ($req->buyer != $data->message->member->id && $req->seller != $data->message->member->id && !$data->message->member->roles->has(self::MODROLE)) {
+                return self::error($data->message, "This isn't yours!",
+                    "Requests can only be unclaimed by the original poster, the person who claimed it, or a Director.");
+            }
+
+            if (is_null($req->seller)) {
+                return self::error($data->message, "Not claimed!",
+                    "Nobody has claimed this request, so it cannot be unclaimed. To remove a request, use `!complete`.");
+
+            }
+
+            $req->unclaim();
+            $embed = self::getEmbed($req, $data, true);
+            $embed->setTitle("Request released");
+            $embed->setDescription(sprintf("To claim this request, run `!claim %s`",Snowflake::format($req->id)));
+
+            return $data->message->channel->send(sprintf("<@%s> released <@%s>'s request",
+                $data->message->member->id, $req->buyer), ['embed' => $embed]);
         } catch (Throwable $e) {
             return self::exceptionHandler($data->message, $e, true);
         }
