@@ -178,6 +178,7 @@ class EveTrader implements PluginInterface
                         $embed->setTitle("Request posted");
                         $embed->setDescription(sprintf("Haulers: Claim this request by running `!claim %s`",Snowflake::format($hr->id)));
 
+                        self::pinUpdate($data->huntress);
                         return $data->message->channel->send("<@&723984678117441646>, a member has posted a haul request.",
                             ['embed' => $embed]);
                     } else {
@@ -259,6 +260,7 @@ class EveTrader implements PluginInterface
             $embed->setTitle("Request claimed");
             $embed->setDescription(sprintf("Hauler: Once you've contracted this request, run `!complete %s`",Snowflake::format($req->id)));
 
+            self::pinUpdate($data->huntress);
             return $data->message->channel->send(sprintf("<@%s> claimed <@%s>'s request",
                 $req->seller, $req->buyer), ['embed' => $embed]);
         } catch (Throwable $e) {
@@ -315,6 +317,7 @@ class EveTrader implements PluginInterface
             $embed->setTitle("Request released");
             $embed->setDescription(sprintf("To claim this request, run `!claim %s`",Snowflake::format($req->id)));
 
+            self::pinUpdate($data->huntress);
             return $data->message->channel->send(sprintf("<@%s> released <@%s>'s request",
                 $data->message->member->id, $req->buyer), ['embed' => $embed]);
         } catch (Throwable $e) {
@@ -365,6 +368,7 @@ class EveTrader implements PluginInterface
             $embed = self::getEmbed($req, $data, false);
             $embed->setTitle("Request completed");
 
+            self::pinUpdate($data->huntress);
             return $data->message->channel->send(sprintf("<@%s>'s request has been completed.", $req->buyer), ['embed' => $embed]);
         } catch (Throwable $e) {
             return self::exceptionHandler($data->message, $e, true);
