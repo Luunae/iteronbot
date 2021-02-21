@@ -375,7 +375,7 @@ class EveTrader implements PluginInterface
         }
     }
 
-    private static function getListEmbed(Guild $guild): MessageEmbed {
+    private static function getUnfulfilledTrades(Guild $guild): Collection {
         $res = $guild->client->db->executeQuery("select idTrade, site from evetrader where completeTime is null");
 
         $orders = new Collection();
@@ -386,6 +386,25 @@ class EveTrader implements PluginInterface
             }
             $orders->set($row['idTrade'], new $row['site']($row['idTrade']));
         }
+        return $orders;
+    }
+
+    private static function getAllTrades(Guild $guild): Collection {
+        $res = $guild->client->db->executeQuery("select idTrade, site from evetrader");
+
+        $orders = new Collection();
+        foreach ($res->fetchAllAssociative() as $row) {
+            if (!(new ReflectionClass($row['site']))->isSubclassOf("Iteronbot\HaulRequest")) {
+                throw new \Exception(sprintf("non-HaulRequest class in database! Tell sauce bosses to look into `%s`",
+                    json_encode($row)));
+            }
+            $orders->set($row['idTrade'], new $row['site']($row['idTrade']));
+        }
+        return $orders;
+    }
+
+    private static function getListEmbed(Guild $guild): MessageEmbed {
+        $orders = self::getUnfulfilledTrades($guild);
 
         // sort orders pls
         $orders = $orders->sortCustom(function (HaulRequest $a, HaulRequest $b) {
