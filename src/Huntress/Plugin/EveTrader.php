@@ -9,6 +9,7 @@ namespace Huntress\Plugin;
 
 
 use CharlotteDunois\Collect\Collection;
+use CharlotteDunois\Yasmin\Models\Guild;
 use CharlotteDunois\Yasmin\Models\MessageEmbed;
 use CharlotteDunois\Yasmin\Utils\MessageHelpers;
 use CharlotteDunois\Yasmin\Utils\URLHelpers;
@@ -48,6 +49,7 @@ class EveTrader implements PluginInterface
     ];
     const MODROLE = 616781834939793428;
 
+    const PIN_URL = "https://canary.discord.com/channels/616779348250329128/721026603395711089/812982938668761108";
 
     const EVEPRAISAL = "/https?:\/\/.*?evepraisal.com\/a\/(.+)$/i";
     const JANICE = "/https?:\/\/.*?janice\.e-351\.com\/a\/(.+)$/i";
@@ -92,6 +94,11 @@ class EveTrader implements PluginInterface
             ->setCallback([self::class, "db"])
         );
 
+        $bot->eventManager->addEventListener(EventListener::new()->setCallback([
+            self::class,
+            "pinUpdate",
+        ])->setPeriodic(60));
+
     }
 
     public static function db(Schema $schema): void
@@ -108,6 +115,20 @@ class EveTrader implements PluginInterface
         $t->addColumn("notes", "text", ['customSchemaOptions' => DatabaseFactory::CHARSET, 'notnull' => false]);
         $t->addColumn("siteData", "text", ['customSchemaOptions' => DatabaseFactory::CHARSET, 'notnull' => false]);
         $t->setPrimaryKey(["idTrade"]);
+    }
+
+    public static function pinUpdate(Huntress $bot): ?PromiseInterface
+    {
+        try {
+            return self::fetchMessage($bot, self::PIN_URL)->then(function ($message) {
+                if ($message->author->id != $message->client->user->id) {
+                    return null;
+                }
+                return $message->edit("", ['embed' => self::getListEmbed($message->guild)]);
+            });
+        } catch (Throwable $e) {
+            $bot->log->warning($e->getMessage(), ['exception' => $e]);
+        }
     }
 
     public static function requestHandler(EventData $data): ?PromiseInterface
@@ -187,69 +208,7 @@ class EveTrader implements PluginInterface
                 return $data->message->react("😔");
             }
 
-            $res = $data->huntress->db->executeQuery("select idTrade, site from evetrader where completeTime is null");
-
-            $orders = new Collection();
-            foreach ($res->fetchAllAssociative() as $row) {
-                if (!(new ReflectionClass($row['site']))->isSubclassOf("Iteronbot\HaulRequest")) {
-                    throw new \Exception(sprintf("non-HaulRequest class in database! Tell sauce bosses to look into `%s`",
-                        json_encode($row)));
-                }
-                $orders->set($row['idTrade'], new $row['site']($row['idTrade']));
-            }
-
-            // sort orders pls
-            $orders = $orders->sortCustom(function (HaulRequest $a, HaulRequest $b) {
-                $x = !is_null($a->seller) <=> !is_null($b->seller);
-                $y = $a->createTime <=> $b->createTime;
-                if ($x == 0) {
-                    return $y;
-                }
-                return $x;
-            });
-
-
-            $embed = new MessageEmbed();
-            $embed->setAuthor($data->message->guild->name,
-                $data->message->guild->getIconURL(64) ?? null);
-            $embed->setColor($data->message->member->id % 0xFFFFFF);
-            $embed->setTimestamp(time());
-            $embed->setFooter("Click the 🔗 for request details.");
-
-            $embed->setTitle(number_format($orders->count()) . " Open Requests");
-            $embed->setDescription("Create a request by running `!request`\n" .
-                "Legend:\n" .
-                "> 🔗 Appraisal Link *(I support Evepraisal or Janice)*\n" .
-                "> 💸 Price (ISK) *(Sell minimum at the indicated market. Actual price may vary)*\n" .
-                "> 📦 Volume (m³)\n" .
-                "> 🧾 Claimaint *(Claim a request by running `!claim ID`)*\n" .
-                "> ⏱️ Time since creation/claim\n");
-
-            $lines = $orders->map(function (HaulRequest $v) use ($data) {
-
-                $str = sprintf("[🔗](%s) `%s` from <@%s>, 💸 %s, 📦 %s, 🧾 %s, ⏱️ %s",
-                    $v->getLink(), Snowflake::format($v->id), $v->buyer,
-                    number_format($v->getTotalPrice()),
-                    number_format($v->getTotalVolume()),
-                    (!is_null($v->seller) && $data->guild->members->has($v->seller)) ? "<@{$v->seller}>" : "Unclaimed",
-                    max($v->createTime, $v->claimTime)->diffForHumans()
-                );
-                if (mb_strlen($v->notes) > 0) {
-                    $str .= PHP_EOL . "> " . $v->notes;
-                }
-                return $str;
-            })->implode(null, PHP_EOL);
-
-            if ($orders->count() == 0) {
-                $lines = "There are no requests right now. 😔";
-            }
-
-            $roles = MessageHelpers::splitMessage($lines, ['maxLength' => 1024]);
-            $firstField = true;
-            foreach ($roles as $role) {
-                $embed->addField($firstField ? "Requests" : "Requests (cont.)", $role);
-                $firstField = false;
-            }
+            $embed = self::getListEmbed($data->guild);
 
             return $data->message->channel->send("", ['embed' => $embed]);
         } catch (Throwable $e) {
@@ -410,6 +369,74 @@ class EveTrader implements PluginInterface
         } catch (Throwable $e) {
             return self::exceptionHandler($data->message, $e, true);
         }
+    }
+
+    private static function getListEmbed(Guild $guild): MessageEmbed {
+        $res = $guild->client->db->executeQuery("select idTrade, site from evetrader where completeTime is null");
+
+        $orders = new Collection();
+        foreach ($res->fetchAllAssociative() as $row) {
+            if (!(new ReflectionClass($row['site']))->isSubclassOf("Iteronbot\HaulRequest")) {
+                throw new \Exception(sprintf("non-HaulRequest class in database! Tell sauce bosses to look into `%s`",
+                    json_encode($row)));
+            }
+            $orders->set($row['idTrade'], new $row['site']($row['idTrade']));
+        }
+
+        // sort orders pls
+        $orders = $orders->sortCustom(function (HaulRequest $a, HaulRequest $b) {
+            $x = !is_null($a->seller) <=> !is_null($b->seller);
+            $y = $a->createTime <=> $b->createTime;
+            if ($x == 0) {
+                return $y;
+            }
+            return $x;
+        });
+
+
+        $embed = new MessageEmbed();
+        $embed->setAuthor($guild->name,
+            $guild->getIconURL(64) ?? null);
+        $embed->setColor($guild->id % 0xFFFFFF);
+        $embed->setTimestamp(time());
+        $embed->setFooter("Click the 🔗 for request details.");
+
+        $embed->setTitle(number_format($orders->count()) . " Open Requests");
+        $embed->setDescription("Create a request by running `!request`\n" .
+            "Legend:\n" .
+            "> 🔗 Appraisal Link *(I support Evepraisal or Janice)*\n" .
+            "> 💸 Price (ISK) *(Sell minimum at the indicated market. Actual price may vary)*\n" .
+            "> 📦 Volume (m³)\n" .
+            "> 🧾 Claimaint *(Claim a request by running `!claim ID`)*\n" .
+            "> ⏱️ Time since creation/claim\n");
+
+        $lines = $orders->map(function (HaulRequest $v) use ($guild) {
+
+            $str = sprintf("[🔗](%s) `%s` from <@%s>, 💸 %s, 📦 %s, 🧾 %s, ⏱️ %s",
+                $v->getLink(), Snowflake::format($v->id), $v->buyer,
+                number_format($v->getTotalPrice()),
+                number_format($v->getTotalVolume()),
+                (!is_null($v->seller) && $guild->members->has($v->seller)) ? "<@{$v->seller}>" : "Unclaimed",
+                max($v->createTime, $v->claimTime)->diffForHumans()
+            );
+            if (mb_strlen($v->notes) > 0) {
+                $str .= PHP_EOL . "> " . $v->notes;
+            }
+            return $str;
+        })->implode(null, PHP_EOL);
+
+        if ($orders->count() == 0) {
+            $lines = "There are no requests right now. 😔";
+        }
+
+        $roles = MessageHelpers::splitMessage($lines, ['maxLength' => 1024]);
+        $firstField = true;
+        foreach ($roles as $role) {
+            $embed->addField($firstField ? "Requests" : "Requests (cont.)", $role);
+            $firstField = false;
+        }
+
+        return $embed;
     }
 
     private static function getEmbed(HaulRequest $hr, EventData $data, bool $includeItems = true): MessageEmbed {
