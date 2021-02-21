@@ -146,42 +146,7 @@ class EveTrader implements PluginInterface
                     $hr->fillItems();
 
                     if ($hr->insert()) {
-                        $embed = new MessageEmbed();
-                        $embed->setAuthor($data->message->member->displayName,
-                            $data->message->member->user->getAvatarURL(64) ?? null);
-                        $embed->setColor($data->message->member->id % 0xFFFFFF);
-                        $embed->setTimestamp(time());
-
-                        $embed->setTitle("Request posted");
-                        $embed->setDescription(sprintf("Sellers: Claim this request by running `!claim %s`",
-                            Snowflake::format($hr->id)));
-                        $embed->setURL($hr->getLink());
-
-                        $embed->addField("Items", $hr->getLink());
-                        $embed->addField("💸 Value ({$hr->getMarket()} Sell)",
-                            number_format($hr->getTotalPrice()) . " ISK", true);
-                        $embed->addField("📦 Payload", number_format($hr->getTotalVolume()) . " m³", true);
-                        if (mb_strlen($hr->notes) > 0) {
-                            $embed->addField("User notes", $hr->notes);
-                        }
-
-                        $embed->setFooter(sprintf("Request ID %s", Snowflake::format($hr->id)));
-
-                        $itemStr = $hr->items->map(function (Item $v) {
-                            return sprintf("%s x%s (💸 %s ISK, 📦 %s m³)",
-                                $v->name, number_format($v->amount),
-                                number_format($v->price * $v->amount),
-                                number_format($v->volume * $v->amount)
-                            );
-                        })->implode(null, PHP_EOL);
-
-                        $roles = MessageHelpers::splitMessage($itemStr, ['maxLength' => 1024]);
-                        $firstField = true;
-                        foreach ($roles as $role) {
-                            $embed->addField($firstField ? "Items" : "Items (cont.)", $role);
-                            $firstField = false;
-                        }
-
+                        $embed = self::getEmbed($hr, $data, true);
                         return $data->message->channel->send("<@&723984678117441646>, a member has posted a haul request.",
                             ['embed' => $embed]);
                     } else {
@@ -321,43 +286,7 @@ class EveTrader implements PluginInterface
             }
 
             $req->claim($data->message->member->id);
-
-            $embed = new MessageEmbed();
-            $embed->setAuthor($data->message->member->displayName,
-                $data->message->member->user->getAvatarURL(64) ?? null);
-            $embed->setColor($data->message->member->id % 0xFFFFFF);
-            $embed->setTimestamp(time());
-
-            $embed->setTitle("Request claimed");
-            $embed->setDescription(sprintf("Once you are done, the poster should run `!complete %s`",
-                Snowflake::format($req->id)));
-            $embed->setURL($req->getLink());
-
-            $embed->addField("Items", $req->getLink());
-            $embed->addField("💸 Value ({$req->getMarket()} Sell)",
-                number_format($req->getTotalPrice()) . " ISK", true);
-            $embed->addField("📦 Payload", number_format($req->getTotalVolume()) . " m³", true);
-            if (mb_strlen($req->notes) > 0) {
-                $embed->addField("User notes", $req->notes);
-            }
-
-            $embed->setFooter(sprintf("Request ID %s", Snowflake::format($req->id)));
-
-            $itemStr = $req->items->map(function (Item $v) {
-                return sprintf("%s x%s (💸 %s ISK, 📦 %s m³)",
-                    $v->name, number_format($v->amount),
-                    number_format($v->price * $v->amount),
-                    number_format($v->volume * $v->amount)
-                );
-            })->implode(null, PHP_EOL);
-
-            $roles = MessageHelpers::splitMessage($itemStr, ['maxLength' => 1024]);
-            $firstField = true;
-            foreach ($roles as $role) {
-                $embed->addField($firstField ? "Items" : "Items (cont.)", $role);
-                $firstField = false;
-            }
-
+            $embed = self::getEmbed($req, $data, true);
 
             return $data->message->channel->send(sprintf("<@%s> claimed <@%s>'s request",
                 $req->seller, $req->buyer), ['embed' => $embed]);
@@ -406,29 +335,60 @@ class EveTrader implements PluginInterface
 
             $req->complete();
 
-            $embed = new MessageEmbed();
-            $embed->setAuthor($data->message->member->displayName,
-                $data->message->member->user->getAvatarURL(64) ?? null);
-            $embed->setColor($data->message->member->id % 0xFFFFFF);
-            $embed->setTimestamp(time());
+            $embed = self::getEmbed($req, $data, false);
 
-            $embed->setTitle("Request completed!");
-            $embed->setURL($req->getLink());
-
-            $embed->addField("Items", $req->getLink());
-            $embed->addField("💸 Value ({$req->getMarket()} Sell)",
-                number_format($req->getTotalPrice()) . " ISK", true);
-            $embed->addField("📦 Payload", number_format($req->getTotalVolume()) . " m³", true);
-            if (mb_strlen($req->notes) > 0) {
-                $embed->addField("User notes", $req->notes);
-            }
-
-            $embed->setFooter(sprintf("Request ID %s", Snowflake::format($req->id)));
-
-            return $data->message->channel->send(sprintf("%s has marked a request completed by <@%s>",
-                $data->message->member, $req->seller), ['embed' => $embed]);
+            return $data->message->channel->send(sprintf("<@%s>'s request has been completed.", $req->buyer), ['embed' => $embed]);
         } catch (Throwable $e) {
             return self::exceptionHandler($data->message, $e, true);
         }
+    }
+
+    private static function getEmbed(HaulRequest $hr, EventData $data, bool $includeItems = true): MessageEmbed {
+        $price = $hr->getTotalPrice();
+        $fee = $price * 0.05;
+        $priceMsg = sprintf("%s ISK\n%s ISK fee\n%s ISK total",
+            number_format($price),
+            number_format($fee),
+            number_format($price + $fee),
+        );
+
+        $embed = new MessageEmbed();
+        $embed->setAuthor($data->message->member->displayName,
+            $data->message->member->user->getAvatarURL(64) ?? null);
+        $embed->setColor($data->message->member->id % 0xFFFFFF);
+        $embed->setTimestamp(time());
+
+        $embed->setTitle("Request posted");
+        $embed->setDescription(sprintf("Sellers: Claim this request by running `!claim %s`",
+            Snowflake::format($hr->id)));
+        $embed->setURL($hr->getLink());
+
+        $embed->addField("Items", $hr->getLink());
+        $embed->addField("💸 Value ({$hr->getMarket()} Sell)", $priceMsg, true);
+        $embed->addField("📦 Payload", number_format($hr->getTotalVolume()) . " m³", true);
+        if (mb_strlen($hr->notes) > 0) {
+            $embed->addField("User notes", $hr->notes);
+        }
+
+        $embed->setFooter(sprintf("Request ID %s", Snowflake::format($hr->id)));
+
+        if ($includeItems) {
+            $itemStr = $hr->items->map(function (Item $v) {
+                return sprintf("%s x%s (💸 %s ISK, 📦 %s m³)",
+                    $v->name, number_format($v->amount),
+                    number_format($v->price * $v->amount),
+                    number_format($v->volume * $v->amount)
+                );
+            })->implode(null, PHP_EOL);
+
+            $roles = MessageHelpers::splitMessage($itemStr, ['maxLength' => 1024]);
+            $firstField = true;
+            foreach ($roles as $role) {
+                $embed->addField($firstField ? "Items" : "Items (cont.)", $role);
+                $firstField = false;
+            }
+        }
+
+        return $embed;
     }
 }
