@@ -275,12 +275,12 @@ class EveTrader implements PluginInterface
                     $hr->fillItems();
 
                     if ($hr->insert()) {
-                        $embed = self::getEmbed($hr, $data, true);
+                        $embed = self::getEmbed($hr, $data, false);
                         $embed->setTitle("Request posted");
                         $embed->setDescription(sprintf("Haulers: Claim this request by running `!claim %s`",Snowflake::format($hr->id)));
 
                         self::pinUpdate($data->huntress);
-                        return $data->message->channel->send("<@&723984678117441646>, a member has posted a haul request.",
+                        return $data->message->channel->send("A member has posted a haul request.",
                             ['embed' => $embed]);
                     } else {
                         throw new \Exception("unable to insert database row. :(");
