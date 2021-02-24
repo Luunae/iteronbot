@@ -108,8 +108,8 @@ class VoiceCounter implements PluginInterface
         $sizes = [
             'day' => '1d',
             'week' => '1w',
-            'month' => '1m',
-            'year' => '1y',
+            // 'month' => '1m',
+            // 'year' => '1y',
         ];
 
         $files = [];
