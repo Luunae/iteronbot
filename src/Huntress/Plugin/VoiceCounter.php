@@ -53,7 +53,7 @@ class VoiceCounter implements PluginInterface
                 $files[] = ['name' => "bnyse_voiceactivity_$k.png", 'data' => $d];
             }
 
-            return $data->message->channel->send("", ['files' => $files]);
+            return $data->message->channel->send("", ['files' => $files])->then(null, fn ($e) => self::exceptionHandler($data->message, $e, true));
 
         } catch (Throwable $e) {
             return self::exceptionHandler($data->message, $e, true);
