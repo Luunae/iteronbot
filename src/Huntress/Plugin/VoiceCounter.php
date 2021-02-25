@@ -9,6 +9,7 @@ namespace Huntress\Plugin;
 
 
 use CharlotteDunois\Yasmin\Models\Guild;
+use CharlotteDunois\Yasmin\Models\GuildMember;
 use CharlotteDunois\Yasmin\Models\VoiceChannel;
 use Huntress\EventData;
 use Huntress\EventListener;
@@ -68,7 +69,7 @@ class VoiceCounter implements PluginInterface
         // get total count
         $count = $bot->guilds->get(EveTrader::GUILD)->channels->filter(fn ($v) => $v instanceof VoiceChannel)->reduce(function (int $count, VoiceChannel $v) {
             if ($v->id == 662008034205368351) return $count;
-            $count += $v->members->count();
+            $count += $v->members->filter(fn (GuildMember $v) => !$v->user->bot)->count();
             return $count;
         }, 0);
 
@@ -118,7 +119,7 @@ class VoiceCounter implements PluginInterface
             $command = "$exe graph - ".
                 "--start end-$v ".
                 "--imgformat PNG ".
-                "--title \"BNYSE Voice channel activity\" ".
+                "--title \"BNYSE voice channel activity\" ".
                 "--vertical-label \"Users connected\" ".
                 "--width 480 ".
                 "--height 160 ".
@@ -126,7 +127,7 @@ class VoiceCounter implements PluginInterface
                 "--use-nan-for-all-missing-data ".
                 "--lower-limit 0 ".
                 "DEF:connected=temp/voice_activity_bnyse.rrd:users:AVERAGE ".
-                "LINE2:connected#FF0000";
+                "LINE1:connected#FF0000";
             $files[$k] = `$command`;
         }
         return $files;
