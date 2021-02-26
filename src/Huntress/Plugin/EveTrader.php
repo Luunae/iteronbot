@@ -58,6 +58,7 @@ class EveTrader implements PluginInterface
     {
         $bot->eventManager->addEventListener(EventListener::new()
             ->addCommand("request")
+            ->addCommand("order")
             ->addGuild(self::GUILD)
             ->setCallback([self::class, "requestHandler"])
         );
