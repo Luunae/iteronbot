@@ -49,8 +49,18 @@ class VoiceCounter implements PluginInterface
                 return $data->message->react("😔");
             }
 
+            $sizes = [];
+            $sizes['day'] = '1d';
+            $sizes['week'] = '1w';
+
+            if (self::arg_substr($data->message->content, 1, 1) ?? "" == "all") {
+                $sizes['month'] = '1m';
+                $sizes['year'] = '1y';
+            }
+
+
             $files = [];
-            foreach (self::getGraphs($data->huntress) as $k => $d) {
+            foreach (self::getGraphs($data->huntress, $sizes) as $k => $d) {
                 $files[] = ['name' => "bnyse_voiceactivity_$k.png", 'data' => $d];
             }
 
@@ -105,13 +115,7 @@ class VoiceCounter implements PluginInterface
         }
     }
 
-    public static function getGraphs(Huntress $bot): array {
-        $sizes = [
-            'day' => '1d',
-            'week' => '1w',
-            // 'month' => '1m',
-            // 'year' => '1y',
-        ];
+    public static function getGraphs(Huntress $bot, array $sizes): array {
 
         $files = [];
         $exe = (PHP_OS == "WINNT") ? "wsl TZ=UTC rrdtool" : " TZ=UTC rrdtool";
