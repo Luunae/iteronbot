@@ -112,7 +112,7 @@ class VoiceCounter implements PluginInterface
                 "--imgformat PNG " .
                 "--title \"BNYSE voice channel activity\" " .
                 "--vertical-label \"Users connected\" " .
-                "--width 400  --height 160 --full-size-mode " .
+                "--width 600  --height 200 " .
                 "--watermark \"Timezone: UTC\" " .
                 "--use-nan-for-all-missing-data " .
                 "--lower-limit 0 " .
